@@ -8,15 +8,12 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.io.File
-import kotlin.coroutines.resume
 
 /**
  * Manages output file creation and MediaStore registration.
- * Output directory: Movies/ViMal (consistent with Android media conventions).
- * Uses MediaStore ContentResolver (scoped storage — API 29+).
+ * Target directory: Movies/ViMal (Scoped storage on Android 10+ / API 29+).
  */
 object OutputFileManager {
 
@@ -24,7 +21,6 @@ object OutputFileManager {
 
     /**
      * Create a temporary working file in internal cache.
-     * Used during processing (audio temp, video temp) before final mux.
      */
     fun createTempFile(context: Context, suffix: String): File {
         val tempDir = File(context.cacheDir, "vimal_temp").apply { mkdirs() }
@@ -59,9 +55,12 @@ object OutputFileManager {
         val itemUri = resolver.insert(collectionUri, values)
             ?: error("Failed to create MediaStore entry for $outputName")
 
-        resolver.openOutputStream(itemUri)?.use { out ->
-            tempFile.inputStream().use { it.copyTo(out) }
-        }
+        resolver.openOutputStream(itemUri, "w")?.use { out ->
+            tempFile.inputStream().use { input ->
+                input.copyTo(out)
+            }
+            out.flush()
+        } ?: error("Failed to open output stream for $itemUri")
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             values.clear()
@@ -69,24 +68,26 @@ object OutputFileManager {
             resolver.update(itemUri, values, null, null)
         }
 
-        itemUri
-    }
+        // Trigger media scan so the file appears immediately in Gallery and file managers
+        try {
+            val moviesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)
+            val vimalDir = File(moviesDir, OUTPUT_FOLDER)
+            val destFile = File(vimalDir, outputName)
+            if (destFile.exists()) {
+                MediaScannerConnection.scanFile(context, arrayOf(destFile.absolutePath), arrayOf("video/mp4"), null)
+            }
+        } catch (_: Exception) {}
 
-    /**
-     * Get the real file path from a MediaStore Uri for use with MediaExtractor.
-     */
-    fun getPathFromUri(context: Context, uri: Uri): String? {
-        val projection = arrayOf(MediaStore.Video.Media.DATA)
-        return context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATA))
-            } else null
-        }
+        itemUri
     }
 
     /** Clean up temp files created during processing. */
     fun cleanupTempFiles(vararg files: File) {
-        files.forEach { it.delete() }
+        files.forEach {
+            try {
+                if (it.exists()) it.delete()
+            } catch (_: Exception) {}
+        }
     }
 
     private fun buildOutputName(sourceName: String): String {

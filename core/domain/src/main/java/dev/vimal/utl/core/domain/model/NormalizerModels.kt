@@ -33,6 +33,7 @@ sealed class NormalizeProgress {
     data object Analyzing : NormalizeProgress()
     data class Processing(val percent: Float, val stage: Stage) : NormalizeProgress()
     data object Muxing : NormalizeProgress()
+    data object Completed : NormalizeProgress()
 
     enum class Stage { DEMUXING, MEASURING_LUFS, ENCODING_AUDIO, MUXING }
 }

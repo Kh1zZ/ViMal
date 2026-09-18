@@ -24,12 +24,15 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import coil.request.videoFrameMillis
 import dev.vimal.utl.core.domain.model.VideoInfo
 import kotlin.math.roundToInt
 
@@ -44,6 +47,15 @@ fun VideoMetadataCard(
     onChangeVideo: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val imageRequest = remember(videoInfo.uri) {
+        ImageRequest.Builder(context)
+            .data(videoInfo.uri)
+            .videoFrameMillis(1000L)
+            .crossfade(true)
+            .build()
+    }
+
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -61,9 +73,10 @@ fun VideoMetadataCard(
                     .aspectRatio(16f / 9f)
                     .clip(RoundedCornerShape(10.dp))
                     .background(MaterialTheme.colorScheme.surface),
+                contentAlignment = Alignment.Center,
             ) {
                 AsyncImage(
-                    model = videoInfo.uri,
+                    model = imageRequest,
                     contentDescription = "Video thumbnail",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.matchParentSize(),
@@ -83,17 +96,29 @@ fun VideoMetadataCard(
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                 )
-                MetaRow("Duration", formatDuration(videoInfo.durationMs))
-                MetaRow("Resolution", "${videoInfo.width}×${videoInfo.height}")
-                MetaRow("Size", formatFileSize(videoInfo.fileSizeBytes))
+                MetaRow(
+                    label = androidx.compose.ui.res.stringResource(dev.vimal.utl.core.ui.R.string.meta_duration),
+                    value = if (videoInfo.durationMs > 0) formatDuration(videoInfo.durationMs) else "-"
+                )
+                MetaRow(
+                    label = androidx.compose.ui.res.stringResource(dev.vimal.utl.core.ui.R.string.meta_resolution),
+                    value = if (videoInfo.width > 0 && videoInfo.height > 0) "${videoInfo.width}×${videoInfo.height}" else "-"
+                )
+                MetaRow(
+                    label = androidx.compose.ui.res.stringResource(dev.vimal.utl.core.ui.R.string.meta_size),
+                    value = if (videoInfo.fileSizeBytes > 0) formatFileSize(videoInfo.fileSizeBytes) else "-"
+                )
                 if (videoInfo.measuredLufs != null) {
-                    MetaRow("Loudness", "${videoInfo.measuredLufs} LUFS")
+                    MetaRow(
+                        label = androidx.compose.ui.res.stringResource(dev.vimal.utl.core.ui.R.string.meta_loudness),
+                        value = "${videoInfo.measuredLufs} LUFS"
+                    )
                 }
             }
 
             Spacer(modifier = Modifier.width(4.dp))
 
-            // Compact change video button (PRD: ukurannya kecil/compact)
+            // Compact change video button
             TextButton(
                 onClick = onChangeVideo,
                 modifier = Modifier.align(Alignment.Top),
@@ -105,7 +130,7 @@ fun VideoMetadataCard(
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "Change",
+                    text = androidx.compose.ui.res.stringResource(dev.vimal.utl.core.ui.R.string.btn_change_video),
                     style = MaterialTheme.typography.labelSmall,
                 )
             }

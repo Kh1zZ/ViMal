@@ -1,10 +1,22 @@
 package dev.vimal.utl
 
 import android.app.Application
+import coil.ImageLoader
+import coil.ImageLoaderFactory
+import coil.decode.VideoFrameDecoder
 
-class ViMalApp : Application() {
+class ViMalApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
-        // Future: DI initialization (Hilt/Koin) goes here when added
+    }
+
+    override fun newImageLoader(): ImageLoader {
+        return ImageLoader.Builder(this)
+            .components {
+                add(VideoFrameDecoder.Factory())
+            }
+            .crossfade(true)
+            .build()
     }
 }
+

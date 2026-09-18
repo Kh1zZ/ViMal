@@ -63,6 +63,7 @@ class NormalizerViewModel(
         val source = MediaSource.LocalUri(current.videoInfo.uri)
 
         viewModelScope.launch {
+            var failed = false
             normalizeVideoUseCase(
                 context = context,
                 source = source,
@@ -70,20 +71,21 @@ class NormalizerViewModel(
                 customTargetLufs = current.customLufs,
             )
                 .catch { e ->
+                    failed = true
                     _uiState.value = NormalizerUiState.Error(e.localizedMessage ?: "Unknown error")
                 }
                 .collect { progress ->
-                    _uiState.value = NormalizerUiState.Processing(
-                        videoInfo = current.videoInfo,
-                        progress = progress,
-                    )
+                    if (progress !is NormalizeProgress.Completed) {
+                        _uiState.value = NormalizerUiState.Processing(
+                            videoInfo = current.videoInfo,
+                            progress = progress,
+                        )
+                    }
                 }
 
-            // Flow completed — fetch result
-            // (In production, repository returns the result after flow completes)
-            // For now, transition to Done with a placeholder
-            // The repository's awaitResult() is called here in a real wiring
-            handleNormalizationComplete(current)
+            if (!failed) {
+                handleNormalizationComplete(context, current)
+            }
         }
     }
 
@@ -93,14 +95,15 @@ class NormalizerViewModel(
 
     // ── Internal ──────────────────────────────────────────────────────────────
 
-    private suspend fun handleNormalizationComplete(previous: NormalizerUiState.VideoLoaded) {
+    private suspend fun handleNormalizationComplete(context: Context, previous: NormalizerUiState.VideoLoaded) {
         // Emit completion sound event
         _events.send(NormalizerEvent.PlayCompletionSound)
 
-        // Auto-transition back to VideoLoaded with the output video
-        // (In a full wiring, we reload the output URI as the new VideoInfo)
-        _uiState.value = previous.copy(
-            videoInfo = previous.videoInfo.copy(measuredLufs = null),
-        )
+        // Emit success snackbar
+        val successMsg = context.getString(dev.vimal.utl.core.ui.R.string.msg_normalization_success)
+        _events.send(NormalizerEvent.ShowSnackbar(successMsg))
+
+        // Transition back to VideoLoaded
+        _uiState.value = previous
     }
 }

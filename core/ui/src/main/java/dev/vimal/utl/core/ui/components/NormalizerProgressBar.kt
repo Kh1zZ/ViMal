@@ -41,6 +41,7 @@ fun NormalizerProgressBar(
                 NormalizeProgress.Stage.MUXING -> "Muxing output…"
             }
             is NormalizeProgress.Muxing -> 0.95f to "Finalizing…"
+            is NormalizeProgress.Completed -> 1.0f to "Done!"
         }
         val (fraction, stageLabel) = result
 

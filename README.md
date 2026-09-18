@@ -106,22 +106,20 @@ git clone https://github.com/Kh1zZ/ViMal.git
 cd ViMal
 ```
 
-### 2. Build Debug APK
+### 2. Run Local Unit Tests (Fast & Lightweight)
+Untuk pengembangan lokal, kamu hanya perlu menjalankan debug unit test (memakan waktu ~4 detik):
 ```powershell
-.\gradlew.bat assembleDebug
+.\gradlew.bat test
 ```
-Output APK: `app/build/outputs/apk/debug/app-debug.apk` (~58 MB unminified)
 
-### 3. Build Release APK (R8 Minified)
-```powershell
-.\gradlew.bat assembleRelease
-```
-Output APK: `app/build/outputs/apk/release/app-release.apk` (**~2.6 MB** optimized & signed)
+### 3. Automated Cloud Release Build (GitHub Actions)
+Build release APK (optimasi R8, minifikasi kode, dan signing) dilakukan secara otomatis di GitHub Actions setiap kali ada `git push` ke branch `main` atau tag versi (`v*`).
 
-### 4. Install onto Device or Emulator via ADB
-```powershell
-& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" install -r "app/build/outputs/apk/release/app-release.apk"
+Kamu tidak perlu build release secara lokal di komputer:
+```bash
+git push origin main
 ```
+Setelah push, download file APK release yang sudah di-sign langsung dari tab **Actions** atau halaman **Releases** di GitHub!
 
 ---
 

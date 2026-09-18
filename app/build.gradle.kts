@@ -12,8 +12,8 @@ android {
         applicationId = "dev.vimal.utl"
         minSdk = 29
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -22,13 +22,17 @@ android {
         create("release") {
             val keystorePath = System.getenv("KEYSTORE_PATH")
             val keystoreFile = if (keystorePath != null) file(keystorePath) else rootProject.file("release.keystore")
-            if (keystoreFile.exists()) {
+            val keystorePassword = System.getenv("KEYSTORE_PASSWORD")
+            val keyAliasName = System.getenv("KEY_ALIAS")
+            val keyPass = System.getenv("KEY_PASSWORD")
+
+            if (keystoreFile.exists() && !keystorePassword.isNullOrBlank()) {
                 storeFile = keystoreFile
-                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
-                keyAlias = System.getenv("KEY_ALIAS") ?: ""
-                keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+                storePassword = keystorePassword
+                keyAlias = keyAliasName ?: "vimal"
+                keyPassword = keyPass ?: keystorePassword
             } else {
-                // Fallback to debug signature for local testing so the APK can be installed
+                // Fallback to debug signature for local testing so APK is signed and installable without env vars
                 initWith(getByName("debug"))
             }
         }
@@ -83,6 +87,10 @@ dependencies {
     implementation(composeBom)
     implementation(libs.bundles.compose)
     implementation(libs.androidx.ui.tooling.preview)
+
+    // Coil video frame decoding
+    implementation(libs.coil.compose)
+    implementation(libs.coil.video)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -1,82 +1,97 @@
 package dev.vimal.utl.core.data.repository
 
 import android.content.Context
+import android.media.MediaCodec
+import android.media.MediaCodecInfo
 import android.media.MediaExtractor
 import android.media.MediaFormat
+import android.media.MediaMetadataRetriever
 import android.media.MediaMuxer
+import android.net.Uri
+import android.provider.OpenableColumns
 import dev.vimal.utl.core.data.audio.AudioNormalizer
 import dev.vimal.utl.core.data.output.OutputFileManager
-import dev.vimal.utl.core.data.video.VideoCopyHelper
 import dev.vimal.utl.core.domain.model.LoudnessPreset
 import dev.vimal.utl.core.domain.model.MediaSource
 import dev.vimal.utl.core.domain.model.NormalizeProgress
 import dev.vimal.utl.core.domain.model.NormalizeResult
 import dev.vimal.utl.core.domain.model.VideoInfo
 import dev.vimal.utl.core.domain.repository.NormalizerRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileDescriptor
+import kotlin.math.pow
 
 /**
  * Concrete implementation of [NormalizerRepository].
- * Orchestrates: demux → audio normalize → video copy → mux into final MP4.
+ * Orchestrates: Fast metadata retrieval → Pass 1 Audio Analysis → Pass 2 Stream Copy Video & Calibrated AAC Mux.
  */
 class MediaNormalizerRepository : NormalizerRepository {
 
     private var lastResult: NormalizeResult = NormalizeResult.Failure(IllegalStateException("No normalization run yet"))
 
-    override suspend fun getVideoInfo(context: Context, source: MediaSource): VideoInfo {
+    override suspend fun getVideoInfo(context: Context, source: MediaSource): VideoInfo = withContext(Dispatchers.IO) {
         val uri = (source as MediaSource.LocalUri).uri
-        val extractor = MediaExtractor()
-        extractor.setDataSource(context, uri, null)
-
-        var durationUs = 0L
+        val retriever = MediaMetadataRetriever()
+        var durationMs = 0L
         var width = 0
         var height = 0
         var mimeType = "video/mp4"
-        var videoCodec: String? = null
-        var audioCodec: String? = null
 
-        for (i in 0 until extractor.trackCount) {
-            val fmt = extractor.getTrackFormat(i)
-            val mime = fmt.getString(MediaFormat.KEY_MIME) ?: continue
-            when {
-                mime.startsWith("video/") -> {
-                    videoCodec = mime
-                    width = if (fmt.containsKey(MediaFormat.KEY_WIDTH)) fmt.getInteger(MediaFormat.KEY_WIDTH) else 0
-                    height = if (fmt.containsKey(MediaFormat.KEY_HEIGHT)) fmt.getInteger(MediaFormat.KEY_HEIGHT) else 0
-                    if (fmt.containsKey(MediaFormat.KEY_DURATION)) durationUs = fmt.getLong(MediaFormat.KEY_DURATION)
-                }
-                mime.startsWith("audio/") -> audioCodec = mime
+        try {
+            retriever.setDataSource(context, uri)
+            val durStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+            val wStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
+            val hStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
+            val rotStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
+            val mimeStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE)
+
+            durationMs = durStr?.toLongOrNull() ?: 0L
+            val w = wStr?.toIntOrNull() ?: 0
+            val h = hStr?.toIntOrNull() ?: 0
+            val rotation = rotStr?.toIntOrNull() ?: 0
+
+            // If video is rotated 90 or 270 degrees, swap width and height for display
+            if (rotation == 90 || rotation == 270) {
+                width = h
+                height = w
+            } else {
+                width = w
+                height = h
             }
+            if (!mimeStr.isNullOrBlank()) mimeType = mimeStr
+        } catch (_: Exception) {
+            // Retriever fallback
+        } finally {
+            try { retriever.release() } catch (_: Exception) {}
         }
-        extractor.release()
 
-        // Get file size and display name
-        val fileSizeBytes = context.contentResolver.openFileDescriptor(uri, "r")?.use {
-            it.statSize
-        } ?: 0L
+        // Get file size and display name from ContentResolver
+        val fileSizeBytes = try {
+            context.contentResolver.openFileDescriptor(uri, "r")?.use { it.statSize } ?: 0L
+        } catch (_: Exception) { 0L }
 
-        val fileName = context.contentResolver.query(
-            uri, arrayOf(android.provider.MediaStore.Video.Media.DISPLAY_NAME), null, null, null
-        )?.use { c ->
-            if (c.moveToFirst()) c.getString(0) else "video.mp4"
-        } ?: uri.lastPathSegment ?: "video.mp4"
+        val fileName = try {
+            context.contentResolver.query(
+                uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null
+            )?.use { c ->
+                if (c.moveToFirst()) c.getString(0) else null
+            } ?: uri.lastPathSegment ?: "video.mp4"
+        } catch (_: Exception) { uri.lastPathSegment ?: "video.mp4" }
 
-        mimeType = context.contentResolver.getType(uri) ?: "video/mp4"
-
-        return VideoInfo(
+        VideoInfo(
             uri = uri,
             fileName = fileName,
-            durationMs = durationUs / 1000,
+            durationMs = durationMs,
             width = width,
             height = height,
             fileSizeBytes = fileSizeBytes,
             mimeType = mimeType,
-            videoCodec = videoCodec,
-            audioCodec = audioCodec,
+            videoCodec = null,
+            audioCodec = null,
             measuredLufs = null,
         )
     }
@@ -90,62 +105,74 @@ class MediaNormalizerRepository : NormalizerRepository {
         val targetLufs = if (preset == LoudnessPreset.CUSTOM) customTargetLufs!! else preset.targetLufs
         val uri = (source as MediaSource.LocalUri).uri
 
-        // Resolve file path from URI
-        val inputPath = OutputFileManager.getPathFromUri(context, uri)
-            ?: error("Cannot resolve file path from URI: $uri")
-
-        val tempAudioFile = OutputFileManager.createTempFile(context, "_audio.aac")
         val tempMuxedFile = OutputFileManager.createTempFile(context, "_muxed.mp4")
 
         try {
             send(NormalizeProgress.Analyzing)
 
-            // ── Step 1: Normalize audio ──────────────────────────────────────
-            var measuredLufs = -70f
-            val audioJob = launch {
-                measuredLufs = AudioNormalizer.normalize(
-                    inputPath = inputPath,
-                    outputPath = tempAudioFile.absolutePath,
-                    targetLufs = targetLufs,
+            // Open source file descriptor
+            val pfd = context.contentResolver.openFileDescriptor(uri, "r")
+                ?: error("Cannot open file descriptor for URI: $uri")
+
+            val audioData = pfd.use { parcelFd ->
+                AudioNormalizer.analyze(
+                    fd = parcelFd.fileDescriptor,
                     onProgress = { p ->
-                        trySend(NormalizeProgress.Processing(p * 0.8f, NormalizeProgress.Stage.ENCODING_AUDIO))
-                    },
+                        trySend(NormalizeProgress.Processing(p * 0.45f, NormalizeProgress.Stage.MEASURING_LUFS))
+                    }
                 )
             }
-            audioJob.join()
 
-            // ── Step 2: Mux video + normalized audio ─────────────────────────
+            val measuredLufs = audioData.measuredLufs
+            val gainDb = targetLufs - measuredLufs
+            val gainLinear = 10f.pow(gainDb / 20f)
+
+            send(NormalizeProgress.Processing(0.5f, NormalizeProgress.Stage.ENCODING_AUDIO))
+
+            // Open second descriptor for muxing video stream and encoding audio
+            val muxPfd = context.contentResolver.openFileDescriptor(uri, "r")
+                ?: error("Cannot open file descriptor for muxing: $uri")
+
+            muxPfd.use { parcelFd ->
+                muxNormalizedVideo(
+                    videoFd = parcelFd.fileDescriptor,
+                    audio = audioData,
+                    gainLinear = gainLinear,
+                    tempOutputFile = tempMuxedFile,
+                    onProgress = { p ->
+                        trySend(NormalizeProgress.Processing(0.5f + p * 0.45f, NormalizeProgress.Stage.ENCODING_AUDIO))
+                    }
+                )
+            }
+
             send(NormalizeProgress.Muxing)
-            muxVideoAndAudio(
-                context = context,
-                inputPath = inputPath,
-                normalizedAudioPath = tempAudioFile.absolutePath,
-                outputPath = tempMuxedFile.absolutePath,
-            )
 
-            // ── Step 3: Publish to MediaStore ────────────────────────────────
-            val fileName = context.contentResolver.query(
-                uri, arrayOf(android.provider.MediaStore.Video.Media.DISPLAY_NAME), null, null, null
-            )?.use { c -> if (c.moveToFirst()) c.getString(0) else "video.mp4" } ?: "video.mp4"
+            // Publish to MediaStore Movies/ViMal
+            val fileName = try {
+                context.contentResolver.query(
+                    uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null
+                )?.use { c -> if (c.moveToFirst()) c.getString(0) else "video.mp4" } ?: "video.mp4"
+            } catch (_: Exception) { "video.mp4" }
 
             val outputUri = OutputFileManager.publishToMediaStore(context, fileName, tempMuxedFile)
-            val durationMs = getVideoDurationMs(inputPath)
-            val appliedGain = targetLufs - measuredLufs
+            val durationMs = audioData.durationUs / 1000L
 
             lastResult = NormalizeResult.Success(
                 outputUri = outputUri,
                 outputPath = outputUri.toString(),
                 measuredLufs = measuredLufs,
                 targetLufs = targetLufs,
-                appliedGainDb = appliedGain,
+                appliedGainDb = gainDb,
                 durationMs = durationMs,
             )
+
+            send(NormalizeProgress.Completed)
 
         } catch (e: Exception) {
             lastResult = NormalizeResult.Failure(e)
             throw e
         } finally {
-            OutputFileManager.cleanupTempFiles(tempAudioFile, tempMuxedFile)
+            OutputFileManager.cleanupTempFiles(tempMuxedFile)
         }
     }
 
@@ -153,65 +180,173 @@ class MediaNormalizerRepository : NormalizerRepository {
 
     // ─────────────────────────────────────────────────────────────────────────
 
-    private fun muxVideoAndAudio(
-        context: Context,
-        inputPath: String,
-        normalizedAudioPath: String,
-        outputPath: String,
+    private fun muxNormalizedVideo(
+        videoFd: FileDescriptor,
+        audio: AudioNormalizer.DecodedAudio,
+        gainLinear: Float,
+        tempOutputFile: File,
+        onProgress: (Float) -> Unit,
     ) {
-        val muxer = MediaMuxer(outputPath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+        val muxer = MediaMuxer(tempOutputFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
 
-        // Add video track (direct format copy from source)
+        // 1. Add video track (verbatim copy from source)
         val videoExtractor = MediaExtractor()
-        videoExtractor.setDataSource(inputPath)
+        videoExtractor.setDataSource(videoFd)
         val videoTrackIdx = findVideoTrack(videoExtractor)
-        val muxerVideoTrack = videoExtractor.getTrackFormat(videoTrackIdx).let { muxer.addTrack(it) }
+        videoExtractor.selectTrack(videoTrackIdx)
+        val videoFormat = videoExtractor.getTrackFormat(videoTrackIdx)
+        val muxerVideoTrack = muxer.addTrack(videoFormat)
 
-        // Add audio track
-        val audioExtractor = MediaExtractor()
-        audioExtractor.setDataSource(normalizedAudioPath)
-        // ADTS AAC format
+        // 2. Setup AAC Encoder
         val audioFormat = MediaFormat.createAudioFormat(
             MediaFormat.MIMETYPE_AUDIO_AAC,
-            audioExtractor.getTrackFormat(0).getInteger(MediaFormat.KEY_SAMPLE_RATE),
-            audioExtractor.getTrackFormat(0).getInteger(MediaFormat.KEY_CHANNEL_COUNT),
-        )
-        val muxerAudioTrack = muxer.addTrack(audioFormat)
+            audio.sampleRate,
+            audio.channelCount,
+        ).apply {
+            setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
+            setInteger(MediaFormat.KEY_BIT_RATE, audio.bitRate.coerceAtLeast(128_000))
+            setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 16384)
+        }
 
-        muxer.start()
+        val encoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC)
+        encoder.configure(audioFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+        encoder.start()
 
-        // Copy video
-        videoExtractor.selectTrack(videoTrackIdx)
-        val buf = java.nio.ByteBuffer.allocate(1024 * 1024)
-        val info = android.media.MediaCodec.BufferInfo()
+        var muxerAudioTrack = -1
+        var muxerStarted = false
+
+        val encoderInfo = MediaCodec.BufferInfo()
+        var inputDone = false
+        var chunkIdx = 0
+        var chunkOffset = 0
+        val totalSamples = audio.pcmChunks.sumOf { it.size }
+        var processedSamples = 0
+        var lastProgressTime = 0L
+
+        fun drainEncoder() {
+            while (true) {
+                val outIdx = encoder.dequeueOutputBuffer(encoderInfo, 1000L)
+                if (outIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                    if (!muxerStarted) {
+                        muxerAudioTrack = muxer.addTrack(encoder.outputFormat)
+                        muxer.start()
+                        muxerStarted = true
+                    }
+                } else if (outIdx >= 0) {
+                    val outBuf = encoder.getOutputBuffer(outIdx)!!
+                    if (encoderInfo.size > 0 && muxerStarted) {
+                        if (encoderInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0) {
+                            muxer.writeSampleData(muxerAudioTrack, outBuf, encoderInfo)
+                        }
+                    }
+                    encoder.releaseOutputBuffer(outIdx, false)
+                    if (encoderInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break
+                } else {
+                    break
+                }
+            }
+        }
+
+        // 3. Feed PCM to encoder and drain output
+        while (!inputDone) {
+            val inIdx = encoder.dequeueInputBuffer(1000L)
+            if (inIdx >= 0) {
+                val buf = encoder.getInputBuffer(inIdx)!!
+                buf.clear()
+                val capacity = buf.remaining() / 2  // in 16-bit shorts
+
+                if (chunkIdx >= audio.pcmChunks.size) {
+                    val sampleTimeUs = if (audio.sampleRate > 0) {
+                        (processedSamples.toLong() / audio.channelCount) * 1_000_000L / audio.sampleRate
+                    } else 0L
+                    encoder.queueInputBuffer(inIdx, 0, 0, sampleTimeUs, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                    inputDone = true
+                } else {
+                    val sampleTimeUs = if (audio.sampleRate > 0) {
+                        (processedSamples.toLong() / audio.channelCount) * 1_000_000L / audio.sampleRate
+                    } else 0L
+                    var written = 0
+                    while (chunkIdx < audio.pcmChunks.size && written < capacity) {
+                        val chunk = audio.pcmChunks[chunkIdx]
+                        while (chunkOffset < chunk.size && written < capacity) {
+                            val gained = (chunk[chunkOffset] * gainLinear).coerceIn(-1f, 1f)
+                            buf.putShort((gained * 32767f).toInt().toShort())
+                            chunkOffset++
+                            written++
+                            processedSamples++
+                        }
+                        if (chunkOffset >= chunk.size) {
+                            chunkIdx++
+                            chunkOffset = 0
+                        }
+                    }
+                    encoder.queueInputBuffer(inIdx, 0, written * 2, sampleTimeUs, 0)
+
+                    val now = System.currentTimeMillis()
+                    if (now - lastProgressTime > 60) {
+                        lastProgressTime = now
+                        if (totalSamples > 0) {
+                            onProgress(processedSamples.toFloat() / totalSamples)
+                        }
+                    }
+                }
+            }
+            drainEncoder()
+        }
+
+        // Drain remaining encoder output until EOS
         while (true) {
-            buf.clear()
-            val sz = videoExtractor.readSampleData(buf, 0)
+            val outIdx = encoder.dequeueOutputBuffer(encoderInfo, 5000L)
+            if (outIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                if (!muxerStarted) {
+                    muxerAudioTrack = muxer.addTrack(encoder.outputFormat)
+                    muxer.start()
+                    muxerStarted = true
+                }
+            } else if (outIdx >= 0) {
+                val outBuf = encoder.getOutputBuffer(outIdx)!!
+                if (encoderInfo.size > 0 && muxerStarted) {
+                    if (encoderInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0) {
+                        muxer.writeSampleData(muxerAudioTrack, outBuf, encoderInfo)
+                    }
+                }
+                encoder.releaseOutputBuffer(outIdx, false)
+                if (encoderInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break
+            } else {
+                break
+            }
+        }
+
+        // Ensure muxer is started
+        if (!muxerStarted) {
+            muxerAudioTrack = muxer.addTrack(encoder.outputFormat)
+            muxer.start()
+            muxerStarted = true
+        }
+
+        // 4. Copy video samples into muxer
+        val videoBuf = java.nio.ByteBuffer.allocate(1024 * 1024)
+        val videoInfo = MediaCodec.BufferInfo()
+        while (true) {
+            videoBuf.clear()
+            val sz = videoExtractor.readSampleData(videoBuf, 0)
             if (sz < 0) break
-            info.offset = 0; info.size = sz
-            info.presentationTimeUs = videoExtractor.sampleTime
-            info.flags = videoExtractor.sampleFlags
-            muxer.writeSampleData(muxerVideoTrack, buf, info)
+            videoInfo.offset = 0
+            videoInfo.size = sz
+            videoInfo.presentationTimeUs = videoExtractor.sampleTime
+            videoInfo.flags = videoExtractor.sampleFlags
+            muxer.writeSampleData(muxerVideoTrack, videoBuf, videoInfo)
             videoExtractor.advance()
         }
 
-        // Copy normalized audio (raw ADTS frames, skip header)
-        audioExtractor.selectTrack(0)
-        while (true) {
-            buf.clear()
-            val sz = audioExtractor.readSampleData(buf, 0)
-            if (sz < 0) break
-            info.offset = 0; info.size = sz
-            info.presentationTimeUs = audioExtractor.sampleTime
-            info.flags = audioExtractor.sampleFlags
-            muxer.writeSampleData(muxerAudioTrack, buf, info)
-            audioExtractor.advance()
-        }
-
-        muxer.stop()
-        muxer.release()
+        // Clean up
+        encoder.stop()
+        encoder.release()
         videoExtractor.release()
-        audioExtractor.release()
+        try {
+            muxer.stop()
+        } catch (_: Exception) {}
+        muxer.release()
     }
 
     private fun findVideoTrack(extractor: MediaExtractor): Int {
@@ -219,15 +354,5 @@ class MediaNormalizerRepository : NormalizerRepository {
             if (extractor.getTrackFormat(i).getString(MediaFormat.KEY_MIME)?.startsWith("video/") == true) return i
         }
         error("No video track found")
-    }
-
-    private fun getVideoDurationMs(path: String): Long {
-        val ext = MediaExtractor()
-        ext.setDataSource(path)
-        val dur = if (ext.trackCount > 0) {
-            ext.getTrackFormat(0).getLong(MediaFormat.KEY_DURATION) / 1000L
-        } else 0L
-        ext.release()
-        return dur
     }
 }

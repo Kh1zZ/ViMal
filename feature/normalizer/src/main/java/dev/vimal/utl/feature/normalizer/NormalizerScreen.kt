@@ -56,6 +56,7 @@ import dev.vimal.utl.core.ui.components.VideoMetadataCard
 fun NormalizerScreen(
     viewModel: NormalizerViewModel,
     isDarkTheme: Boolean,
+    currentLanguage: String = "id",
     onToggleTheme: () -> Unit,
     onToggleLanguage: () -> Unit,
     modifier: Modifier = Modifier,
@@ -101,7 +102,7 @@ fun NormalizerScreen(
                     )
                 },
                 navigationIcon = {
-                    // Light/dark toggle — top left per PRD §4.6
+                    // Light/dark toggle — top left
                     IconButton(onClick = onToggleTheme) {
                         Icon(
                             imageVector = if (isDarkTheme) Icons.Rounded.LightMode else Icons.Rounded.DarkMode,
@@ -111,12 +112,17 @@ fun NormalizerScreen(
                     }
                 },
                 actions = {
-                    // Language toggle — top right per PRD §4.6
-                    IconButton(onClick = onToggleLanguage) {
-                        Icon(
-                            imageVector = Icons.Rounded.Language,
-                            contentDescription = "Toggle language",
-                            tint = MaterialTheme.colorScheme.onBackground,
+                    // Language toggle — clear text button EN / ID
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = onToggleLanguage,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 2.dp),
+                        modifier = Modifier.padding(end = 12.dp)
+                    ) {
+                        Text(
+                            text = if (currentLanguage.equals("id", ignoreCase = true) || currentLanguage.equals("in", ignoreCase = true)) "ID" else "EN",
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary,
                         )
                     }
                 },
@@ -131,6 +137,16 @@ fun NormalizerScreen(
             transitionSpec = {
                 (fadeIn() + slideInVertically { it / 8 }) togetherWith
                         (fadeOut() + slideOutVertically { -it / 8 })
+            },
+            contentKey = { state ->
+                // Crucial: Group states so progress updates do NOT trigger slide/fade animations!
+                when (state) {
+                    is NormalizerUiState.Empty -> 0
+                    is NormalizerUiState.VideoLoaded -> 1
+                    is NormalizerUiState.Processing -> 2
+                    is NormalizerUiState.Done -> 3
+                    is NormalizerUiState.Error -> 4
+                }
             },
             label = "state_transition",
             modifier = modifier
@@ -157,7 +173,6 @@ fun NormalizerScreen(
                 }
 
                 is NormalizerUiState.Done -> {
-                    // Done auto-transitions — this state is briefly shown
                     DoneContent(state = state)
                 }
 
@@ -183,21 +198,21 @@ private fun EmptyStateContent(onPickVideo: () -> Unit) {
         verticalArrangement = Arrangement.Center,
     ) {
         Text(
-            text = "Normalize your video audio",
+            text = androidx.compose.ui.res.stringResource(dev.vimal.utl.core.ui.R.string.title_normalize),
             style = MaterialTheme.typography.headlineLarge,
             color = MaterialTheme.colorScheme.onBackground,
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Select a video to set its loudness to platform standards.",
+            text = androidx.compose.ui.res.stringResource(dev.vimal.utl.core.ui.R.string.subtitle_normalize),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(modifier = Modifier.height(32.dp))
         DashedDropZone(
             onPickVideo = onPickVideo,
-            label = "Tap to select video",
-            sublabel = "MP4, MOV, MKV, WebM",
+            label = androidx.compose.ui.res.stringResource(dev.vimal.utl.core.ui.R.string.label_pick_video),
+            sublabel = androidx.compose.ui.res.stringResource(dev.vimal.utl.core.ui.R.string.label_supported_formats),
         )
     }
 }
@@ -229,15 +244,15 @@ private fun VideoLoadedContent(
             onCustomLufsChanged = onCustomLufsChanged,
         )
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // Start button at bottom per PRD §4.6 step 4
+        // Start button at bottom
         PressableButton(
-            text = "Start Normalization",
+            text = androidx.compose.ui.res.stringResource(dev.vimal.utl.core.ui.R.string.btn_start),
             onClick = onStart,
             modifier = Modifier.fillMaxWidth(),
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ViMal</string>
+    <string name="title_normalize">Normalize your video audio</string>
+    <string name="subtitle_normalize">Select a video to set its loudness to platform standards.</string>
+    <string name="label_pick_video">Tap to select video</string>
+    <string name="label_supported_formats">MP4, MOV, MKV, WebM</string>
+    <string name="btn_start">Start Normalization</string>
+    <string name="btn_change_video">Change</string>
+    <string name="label_preset_selector">Normalization Target</string>
+    <string name="label_custom_lufs_hint">Target LUFS (e.g. -14)</string>
+    <string name="label_custom_lufs_support">Recommended: −14 to −16 LUFS</string>
+
+    <string name="stage_analyzing">Analyzing audio…</string>
+    <string name="stage_demuxing">Separating tracks…</string>
+    <string name="stage_measuring">Measuring loudness…</string>
+    <string name="stage_encoding">Applying gain &amp; encoding…</string>
+    <string name="stage_muxing">Finalizing video…</string>
+    <string name="label_processing">Processing…</string>
+
+    <string name="done_title">Done!</string>
+    <string name="done_gain_applied">Gain applied: %1$s dB</string>
+    <string name="done_lufs_range">%1$s LUFS → %2$s LUFS</string>
+    <string name="msg_normalization_success">Video normalized successfully! Saved to Movies/ViMal</string>
+
+    <string name="error_title">Something went wrong</string>
+    <string name="btn_try_again">Try Again</string>
+
+    <string name="meta_duration">Duration</string>
+    <string name="meta_resolution">Resolution</string>
+    <string name="meta_size">Size</string>
+    <string name="meta_loudness">Loudness</string>
+</resources>
