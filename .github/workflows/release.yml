@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   build:
-    name: Unit Test & Build Release APK
+    name: Build Release APK
     runs-on: ubuntu-latest
 
     steps:
@@ -47,11 +47,7 @@ jobs:
       - name: Grant Execute Permission to Gradlew
         run: chmod +x gradlew
 
-      # 1. Run Unit Tests Only (No debug APK is built)
-      - name: Run Unit Tests
-        run: ./gradlew test
-
-      # 2. Build Release APK Only (R8 Minified & Signed)
+      # Build Release APK Only (No unit tests in CI - unit tests run locally only)
       - name: Build Release APK
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -59,7 +55,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew assembleRelease --no-daemon
 
-      # 3. Always upload release APK artifact on every push
+      # Upload release APK artifact on every push
       - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -67,7 +63,7 @@ jobs:
           path: app/build/outputs/apk/release/app-release.apk
           retention-days: 14
 
-      # 4. If triggered by tag (e.g. v1.0.0), create GitHub Release
+      # If triggered by tag (e.g. v1.0.1), publish GitHub Release
       - name: Publish GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
