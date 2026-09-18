@@ -4,6 +4,7 @@
 
     <!-- Normalizer Screen -->
     <string name="title_normalize">Normalize Video Audio</string>
+    <string name="subtitle_normalize">Select a video to set its loudness to platform standards.</string>
     <string name="label_pick_video">Tap to select video</string>
     <string name="label_supported_formats">MP4, MOV, MKV, WebM supported</string>
     <string name="btn_start">Start Normalization</string>
@@ -11,6 +12,7 @@
     <string name="label_preset_selector">Normalization Target</string>
     <string name="label_custom_lufs_hint">Target LUFS (e.g. -14)</string>
     <string name="label_custom_lufs_support">Recommended: −14 to −16 LUFS</string>
+    <string name="msg_normalization_success">Video normalized successfully! Saved to Movies/ViMal</string>
 
     <!-- Processing -->
     <string name="stage_analyzing">Analyzing audio…</string>

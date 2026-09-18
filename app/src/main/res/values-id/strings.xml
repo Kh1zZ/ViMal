@@ -4,6 +4,7 @@
 
     <!-- Layar Normalizer -->
     <string name="title_normalize">Normalisasi Audio Video</string>
+    <string name="subtitle_normalize">Pilih video untuk mengatur kelantangan audio sesuai standar platform.</string>
     <string name="label_pick_video">Ketuk untuk pilih video</string>
     <string name="label_supported_formats">Mendukung MP4, MOV, MKV, WebM</string>
     <string name="btn_start">Mulai Normalisasi</string>
@@ -11,6 +12,7 @@
     <string name="label_preset_selector">Target Normalisasi</string>
     <string name="label_custom_lufs_hint">Target LUFS (misal -14)</string>
     <string name="label_custom_lufs_support">Disarankan: −14 hingga −16 LUFS</string>
+    <string name="msg_normalization_success">Video berhasil dinormalisasi! Tersimpan di Movies/ViMal</string>
 
     <!-- Proses -->
     <string name="stage_analyzing">Menganalisis audio…</string>

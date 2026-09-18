@@ -15,7 +15,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.vimal.utl.core.data.repository.MediaNormalizerRepository
 import dev.vimal.utl.core.domain.usecase.GetVideoInfoUseCase
@@ -33,21 +32,20 @@ class MainActivity : ComponentActivity() {
             var isDarkTheme by rememberSaveable { mutableStateOf(true) }  // Dark mode default per PRD
             var currentLanguage by rememberSaveable { mutableStateOf("id") } // Indonesian default per PRD
 
-            val context = LocalContext.current
             val locale = remember(currentLanguage) { Locale(currentLanguage) }
             val baseConfig = LocalConfiguration.current
+            // Override LocalConfiguration only — triggers Compose recomposition with correct locale.
+            // NOTE: LocalContext must NOT be overridden here; it is a StaticCompositionLocal and
+            // overriding it via CompositionLocalProvider causes an immediate startup crash.
+            // Actual locale switching is handled by LocaleManager (API 33+) below.
             val localizedConfig = remember(baseConfig, locale) {
                 Configuration(baseConfig).apply {
                     setLocale(locale)
                 }
             }
-            val localizedContext = remember(context, localizedConfig) {
-                context.createConfigurationContext(localizedConfig)
-            }
 
             CompositionLocalProvider(
                 LocalConfiguration provides localizedConfig,
-                LocalContext provides localizedContext
             ) {
                 ViMalTheme(darkTheme = isDarkTheme) {
                     val repository = remember { MediaNormalizerRepository() }
