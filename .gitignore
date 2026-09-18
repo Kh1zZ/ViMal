@@ -30,3 +30,22 @@ replay_pid*
 .prod
 .serena
 .codegraph
+
+# Gradle & Build caches
+.gradle/
+build/
+**/build/
+
+# Local configuration (SDK paths)
+local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.iws
+out/
+.navigation/
+
+# Keystore files
+*.jks
+*.keystore

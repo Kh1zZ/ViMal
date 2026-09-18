@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ViMal</string>
+
+    <!-- Layar Normalizer -->
+    <string name="title_normalize">Normalisasi Audio Video</string>
+    <string name="label_pick_video">Ketuk untuk pilih video</string>
+    <string name="label_supported_formats">Mendukung MP4, MOV, MKV, WebM</string>
+    <string name="btn_start">Mulai Normalisasi</string>
+    <string name="btn_change_video">Ganti</string>
+    <string name="label_preset_selector">Target Normalisasi</string>
+    <string name="label_custom_lufs_hint">Target LUFS (misal -14)</string>
+    <string name="label_custom_lufs_support">Disarankan: −14 hingga −16 LUFS</string>
+
+    <!-- Proses -->
+    <string name="stage_analyzing">Menganalisis audio…</string>
+    <string name="stage_demuxing">Memisahkan track…</string>
+    <string name="stage_measuring">Mengukur loudness…</string>
+    <string name="stage_encoding">Encode audio yang sudah dinormalisasi…</string>
+    <string name="stage_muxing">Menggabungkan output…</string>
+    <string name="label_processing">Memproses…</string>
+
+    <!-- Selesai -->
+    <string name="done_title">Selesai!</string>
+    <string name="done_gain_applied">Gain diterapkan: %1$s dB</string>
+    <string name="done_lufs_range">%1$s LUFS → %2$s LUFS</string>
+
+    <!-- Error -->
+    <string name="error_title">Terjadi kesalahan</string>
+    <string name="btn_try_again">Coba Lagi</string>
+
+    <!-- TopBar -->
+    <string name="cd_toggle_theme_dark">Ganti ke mode terang</string>
+    <string name="cd_toggle_theme_light">Ganti ke mode gelap</string>
+    <string name="cd_toggle_language">Ganti bahasa</string>
+
+    <!-- Metadata video -->
+    <string name="meta_duration">Durasi</string>
+    <string name="meta_resolution">Resolusi</string>
+    <string name="meta_size">Ukuran</string>
+    <string name="meta_loudness">Loudness</string>
+</resources>
