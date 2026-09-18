@@ -55,21 +55,39 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew assembleRelease --no-daemon
 
+      - name: Prepare Release APK Name
+        run: |
+          VERSION=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts | tr -d '[:space:]')
+          if [ -z "$VERSION" ]; then
+            VERSION="1.0.1"
+          fi
+          VERSION_CLEAN=$(echo "$VERSION" | sed 's/^v//')
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            TAG="${{ github.ref_name }}"
+          else
+            TAG="v${VERSION_CLEAN}"
+          fi
+          APK_NAME="vimal-release-${TAG}.apk"
+          echo "APK_NAME=${APK_NAME}" >> $GITHUB_ENV
+          echo "RELEASE_TAG=${TAG}" >> $GITHUB_ENV
+          cp app/build/outputs/apk/release/app-release.apk "app/build/outputs/apk/release/${APK_NAME}"
+          echo "Prepared release APK: ${APK_NAME}"
+
       # Upload release APK artifact on every push
       - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ViMal-release-apk
-          path: app/build/outputs/apk/release/app-release.apk
+          name: ${{ env.APK_NAME }}
+          path: app/build/outputs/apk/release/${{ env.APK_NAME }}
           retention-days: 14
 
       # Publish directly to GitHub Releases on EVERY push or tag
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'v1.0.1' }}
-          name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'ViMal v1.0.1' }}
-          files: app/build/outputs/apk/release/app-release.apk
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ViMal ${{ env.RELEASE_TAG }}
+          files: app/build/outputs/apk/release/${{ env.APK_NAME }}
           generate_release_notes: true
           make_latest: true
         env:

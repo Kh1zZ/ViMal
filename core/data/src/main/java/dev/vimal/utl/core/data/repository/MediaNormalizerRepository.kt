@@ -42,27 +42,55 @@ class MediaNormalizerRepository : NormalizerRepository {
         var mimeType = "video/mp4"
 
         try {
-            retriever.setDataSource(context, uri)
-            val durStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
-            val wStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
-            val hStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
-            val rotStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
-            val mimeStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE)
+            val pfd = try {
+                context.contentResolver.openFileDescriptor(uri, "r")
+            } catch (_: Exception) { null }
 
-            durationMs = durStr?.toLongOrNull() ?: 0L
-            val w = wStr?.toIntOrNull() ?: 0
-            val h = hStr?.toIntOrNull() ?: 0
-            val rotation = rotStr?.toIntOrNull() ?: 0
+            if (pfd != null) {
+                pfd.use { parcelFd ->
+                    retriever.setDataSource(parcelFd.fileDescriptor)
+                    val durStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                    val wStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
+                    val hStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
+                    val rotStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
+                    val mimeStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE)
 
-            // If video is rotated 90 or 270 degrees, swap width and height for display
-            if (rotation == 90 || rotation == 270) {
-                width = h
-                height = w
+                    durationMs = durStr?.toLongOrNull() ?: 0L
+                    val w = wStr?.toIntOrNull() ?: 0
+                    val h = hStr?.toIntOrNull() ?: 0
+                    val rotation = rotStr?.toIntOrNull() ?: 0
+
+                    if (rotation == 90 || rotation == 270) {
+                        width = h
+                        height = w
+                    } else {
+                        width = w
+                        height = h
+                    }
+                    if (!mimeStr.isNullOrBlank()) mimeType = mimeStr
+                }
             } else {
-                width = w
-                height = h
+                retriever.setDataSource(context, uri)
+                val durStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                val wStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
+                val hStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
+                val rotStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
+                val mimeStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE)
+
+                durationMs = durStr?.toLongOrNull() ?: 0L
+                val w = wStr?.toIntOrNull() ?: 0
+                val h = hStr?.toIntOrNull() ?: 0
+                val rotation = rotStr?.toIntOrNull() ?: 0
+
+                if (rotation == 90 || rotation == 270) {
+                    width = h
+                    height = w
+                } else {
+                    width = w
+                    height = h
+                }
+                if (!mimeStr.isNullOrBlank()) mimeType = mimeStr
             }
-            if (!mimeStr.isNullOrBlank()) mimeType = mimeStr
         } catch (_: Exception) {
             // Retriever fallback
         } finally {
