@@ -12,7 +12,7 @@ coroutines = "1.10.1"
 datastore = "1.1.1"
 room = "2.6.1"
 coil = "2.7.0"
-ffmpegKit = "6.0-2"
+ffmpegKit = "8.1.7"
 
 # Testing
 junit = "4.13.2"
@@ -60,8 +60,8 @@ coil-video = { group = "io.coil-kt", name = "coil-video", version.ref = "coil" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
 
-# FFmpeg-Kit (cadangan video transcode — Phase 3)
-ffmpeg-kit-full = { group = "com.arthenica", name = "ffmpeg-kit-full", version.ref = "ffmpegKit" }
+# FFmpeg-Kit Video (H.264, AAC, scale, volume for WhatsApp Story compression)
+ffmpeg-kit-video = { group = "dev.ffmpegkit-maintained", name = "ffmpeg-kit-video", version.ref = "ffmpegKit" }
 
 # Testing
 junit = { group = "junit", name = "junit", version.ref = "junit" }

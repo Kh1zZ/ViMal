@@ -15,6 +15,7 @@
     <string name="stage_demuxing">Separating tracks…</string>
     <string name="stage_measuring">Measuring loudness…</string>
     <string name="stage_encoding">Applying gain &amp; encoding…</string>
+    <string name="stage_compressing">Compressing video &amp; normalizing audio…</string>
     <string name="stage_muxing">Finalizing video…</string>
     <string name="label_processing">Processing…</string>
 
@@ -22,6 +23,8 @@
     <string name="done_gain_applied">Gain applied: %1$s dB</string>
     <string name="done_lufs_range">%1$s LUFS → %2$s LUFS</string>
     <string name="msg_normalization_success">Video normalized successfully! Saved to Movies/ViMal</string>
+    <string name="msg_saved_to_gallery">Saved to Movies/ViMal in your gallery</string>
+    <string name="btn_normalize_another">Normalize Another Video</string>
 
     <string name="error_title">Something went wrong</string>
     <string name="btn_try_again">Try Again</string>
@@ -30,4 +33,11 @@
     <string name="meta_resolution">Resolution</string>
     <string name="meta_size">Size</string>
     <string name="meta_loudness">Loudness</string>
+    <string name="meta_target_resolution">Target Resolution</string>
+    <string name="meta_estimated_size">Estimated Size</string>
+    <string name="label_story_compression">WhatsApp Story Optimization</string>
+    <string name="badge_savings">Save ~%1$d%% • 60 FPS Preserved</string>
+    <string name="badge_sweet_spot">WA Story HD Ready ⚡</string>
+    <string name="desc_preset_720">720p HD (Recommended)</string>
+    <string name="desc_preset_540">540p Compact (Extra Light)</string>
 </resources>

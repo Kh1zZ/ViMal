@@ -1,6 +1,8 @@
 package dev.vimal.utl.core.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,8 +17,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.HighQuality
+import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.SwitchVideo
 import androidx.compose.material.icons.rounded.VideoFile
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -36,16 +41,17 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import coil.request.videoFrameMillis
 import dev.vimal.utl.core.domain.model.VideoInfo
+import dev.vimal.utl.core.domain.model.VideoResolutionPreset
 
 /**
- * Displays video metadata preview after a file has been selected.
- * Layout:
- * - Top header row: File name + compact "Change" button.
- * - Bottom row: Video thumbnail (16:9) + Clean key-value specs (Duration, Resolution, Size).
+ * Displays video metadata preview after a file has been selected,
+ * along with WhatsApp Story resolution selection and dynamic size estimation.
  */
 @Composable
 fun VideoMetadataCard(
     videoInfo: VideoInfo,
+    selectedResolution: VideoResolutionPreset = VideoResolutionPreset.P720,
+    onResolutionSelected: (VideoResolutionPreset) -> Unit = {},
     onChangeVideo: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -57,6 +63,12 @@ fun VideoMetadataCard(
             .crossfade(true)
             .build()
     }
+
+    val (targetW, targetH) = videoInfo.getTargetResolution(selectedResolution)
+    val estimatedBytes = videoInfo.getEstimatedSizeBytes(selectedResolution)
+    val savingsPercent = if (videoInfo.fileSizeBytes > 0 && videoInfo.fileSizeBytes > estimatedBytes) {
+        (((videoInfo.fileSizeBytes - estimatedBytes).toDouble() / videoInfo.fileSizeBytes) * 100).toInt()
+    } else 0
 
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -165,6 +177,130 @@ fun VideoMetadataCard(
                     }
                 }
             }
+
+            // ── Compression & Resolution Selection Section ────────────────────
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 4.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+            )
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(dev.vimal.utl.core.ui.R.string.label_story_compression),
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "60 FPS Preserved",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+
+                // Preset selector buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ResolutionChip(
+                        title = "720p HD",
+                        subtitle = stringResource(dev.vimal.utl.core.ui.R.string.desc_preset_720),
+                        isSelected = selectedResolution == VideoResolutionPreset.P720,
+                        onClick = { onResolutionSelected(VideoResolutionPreset.P720) },
+                        modifier = Modifier.weight(1f),
+                    )
+
+                    ResolutionChip(
+                        title = "540p Compact",
+                        subtitle = stringResource(dev.vimal.utl.core.ui.R.string.desc_preset_540),
+                        isSelected = selectedResolution == VideoResolutionPreset.P540,
+                        onClick = { onResolutionSelected(VideoResolutionPreset.P540) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+
+                // Comparison info & Savings badge
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f))
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column {
+                        Text(
+                            text = "${stringResource(dev.vimal.utl.core.ui.R.string.meta_target_resolution)}: ${if (targetW > 0) "${targetW}×${targetH}" else "-"}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = "${stringResource(dev.vimal.utl.core.ui.R.string.meta_estimated_size)}: ~${formatFileSize(estimatedBytes)}",
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+
+                    if (savingsPercent > 0) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                        ) {
+                            Text(
+                                text = "Hemat ~$savingsPercent% ⚡",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResolutionChip(
+    title: String,
+    subtitle: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+    val bgColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(bgColor)
+            .border(1.dp, borderColor, RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+    ) {
+        Column {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium),
+                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

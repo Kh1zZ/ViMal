@@ -8,6 +8,7 @@ import dev.vimal.utl.core.domain.model.LoudnessPreset
 import dev.vimal.utl.core.domain.model.MediaSource
 import dev.vimal.utl.core.domain.model.NormalizeProgress
 import dev.vimal.utl.core.domain.model.NormalizeResult
+import dev.vimal.utl.core.domain.model.VideoResolutionPreset
 import dev.vimal.utl.core.domain.usecase.GetVideoInfoUseCase
 import dev.vimal.utl.core.domain.usecase.NormalizeVideoUseCase
 import kotlinx.coroutines.channels.Channel
@@ -15,7 +16,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
@@ -49,6 +49,11 @@ class NormalizerViewModel(
         _uiState.value = current.copy(selectedPreset = preset)
     }
 
+    fun onResolutionSelected(preset: VideoResolutionPreset) {
+        val current = _uiState.value as? NormalizerUiState.VideoLoaded ?: return
+        _uiState.value = current.copy(selectedResolution = preset)
+    }
+
     fun onCustomLufsChanged(lufs: Float?) {
         val current = _uiState.value as? NormalizerUiState.VideoLoaded ?: return
         _uiState.value = current.copy(customLufs = lufs)
@@ -58,52 +63,49 @@ class NormalizerViewModel(
         _uiState.value = NormalizerUiState.Empty
     }
 
+    fun onNormalizeAnother() {
+        _uiState.value = NormalizerUiState.Empty
+    }
+
     fun onStartNormalization(context: Context) {
         val current = _uiState.value as? NormalizerUiState.VideoLoaded ?: return
         val source = MediaSource.LocalUri(current.videoInfo.uri)
 
         viewModelScope.launch {
-            var failed = false
             normalizeVideoUseCase(
-                context = context,
-                source = source,
-                preset = current.selectedPreset,
-                customTargetLufs = current.customLufs,
+                context           = context,
+                source            = source,
+                preset            = current.selectedPreset,
+                customTargetLufs  = current.customLufs,
+                resolutionPreset  = current.selectedResolution,
             )
                 .catch { e ->
-                    failed = true
                     _uiState.value = NormalizerUiState.Error(e.localizedMessage ?: "Unknown error")
                 }
                 .collect { progress ->
-                    if (progress !is NormalizeProgress.Completed) {
-                        _uiState.value = NormalizerUiState.Processing(
-                            videoInfo = current.videoInfo,
-                            progress = progress,
-                        )
+                    when (progress) {
+                        is NormalizeProgress.Completed -> {
+                            val result = progress.result
+                            _uiState.value = NormalizerUiState.Done(
+                                outputUri     = result.outputUri,
+                                measuredLufs  = result.measuredLufs,
+                                targetLufs    = result.targetLufs,
+                                appliedGainDb = result.appliedGainDb,
+                            )
+                            _events.send(NormalizerEvent.PlayCompletionSound)
+                        }
+                        else -> {
+                            _uiState.value = NormalizerUiState.Processing(
+                                videoInfo = current.videoInfo,
+                                progress  = progress,
+                            )
+                        }
                     }
                 }
-
-            if (!failed) {
-                handleNormalizationComplete(context, current)
-            }
         }
     }
 
     fun onErrorDismissed() {
         _uiState.value = NormalizerUiState.Empty
-    }
-
-    // ── Internal ──────────────────────────────────────────────────────────────
-
-    private suspend fun handleNormalizationComplete(context: Context, previous: NormalizerUiState.VideoLoaded) {
-        // Emit completion sound event
-        _events.send(NormalizerEvent.PlayCompletionSound)
-
-        // Emit success snackbar
-        val successMsg = context.getString(dev.vimal.utl.core.ui.R.string.msg_normalization_success)
-        _events.send(NormalizerEvent.ShowSnackbar(successMsg))
-
-        // Transition back to VideoLoaded
-        _uiState.value = previous
     }
 }

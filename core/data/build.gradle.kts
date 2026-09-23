@@ -10,6 +10,7 @@ android {
 
     defaultConfig {
         minSdk = 29
+        consumerProguardFiles("consumer-rules.pro")
     }
 
     compileOptions {
@@ -32,9 +33,8 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
 
-    // FFmpeg-Kit — Phase 3 TranscodeStrategy only (not needed for MVP stream-copy)
-    // Add when Phase 3 begins: implementation("com.arthenica:ffmpeg-kit-full:6.0-2")
-    // Repo to add in settings.gradle.kts: maven { url = uri("https://packagecloud.io/arthenica/maven") }
+    // FFmpeg-Kit Video (H.264, AAC, scale, volume for WhatsApp Story compression)
+    implementation(libs.ffmpeg.kit.video)
 
     testImplementation(libs.bundles.testing.unit)
 }

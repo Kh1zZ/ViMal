@@ -15,6 +15,7 @@
     <string name="stage_demuxing">Memisahkan track…</string>
     <string name="stage_measuring">Mengukur kelantangan audio…</string>
     <string name="stage_encoding">Menerapkan gain &amp; encoding…</string>
+    <string name="stage_compressing">Mengompresi video &amp; normalisasi audio…</string>
     <string name="stage_muxing">Menyimpan video…</string>
     <string name="label_processing">Memproses…</string>
 
@@ -22,6 +23,8 @@
     <string name="done_gain_applied">Gain diterapkan: %1$s dB</string>
     <string name="done_lufs_range">%1$s LUFS → %2$s LUFS</string>
     <string name="msg_normalization_success">Video berhasil dinormalisasi! Tersimpan di Movies/ViMal</string>
+    <string name="msg_saved_to_gallery">Tersimpan di Movies/ViMal di galeri kamu</string>
+    <string name="btn_normalize_another">Normalisasi Video Lain</string>
 
     <string name="error_title">Terjadi kendala</string>
     <string name="btn_try_again">Coba Lagi</string>
@@ -30,4 +33,11 @@
     <string name="meta_resolution">Resolusi</string>
     <string name="meta_size">Ukuran</string>
     <string name="meta_loudness">Kelantangan</string>
+    <string name="meta_target_resolution">Target Resolusi</string>
+    <string name="meta_estimated_size">Estimasi Ukuran</string>
+    <string name="label_story_compression">Optimasi Story WhatsApp</string>
+    <string name="badge_savings">Hemat ~%1$d%% • 60 FPS Tetap Mulus</string>
+    <string name="badge_sweet_spot">WA Story HD Ready ⚡</string>
+    <string name="desc_preset_720">720p HD (Rekomendasi)</string>
+    <string name="desc_preset_540">540p Compact (Ekstra Hemat)</string>
 </resources>

@@ -5,8 +5,9 @@
 # Keep MediaCodec and MediaExtractor names (Android media framework)
 -keep class android.media.** { *; }
 
-# FFmpeg-Kit — keep all native bindings
+# FFmpeg-Kit — keep all native bindings and methods
 -keep class com.arthenica.ffmpegkit.** { *; }
+-keepclassmembers class com.arthenica.ffmpegkit.** { *; }
 -dontwarn com.arthenica.ffmpegkit.**
 
 # Kotlin coroutines

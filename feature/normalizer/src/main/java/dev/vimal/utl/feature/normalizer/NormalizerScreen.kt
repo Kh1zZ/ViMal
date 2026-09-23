@@ -163,6 +163,7 @@ fun NormalizerScreen(
                         state = state,
                         onChangeVideo = { videoPickerLauncher.launch("video/*") },
                         onPresetSelected = viewModel::onPresetSelected,
+                        onResolutionSelected = viewModel::onResolutionSelected,
                         onCustomLufsChanged = viewModel::onCustomLufsChanged,
                         onStart = { viewModel.onStartNormalization(context) },
                     )
@@ -173,7 +174,10 @@ fun NormalizerScreen(
                 }
 
                 is NormalizerUiState.Done -> {
-                    DoneContent(state = state)
+                    DoneContent(
+                        state = state,
+                        onNormalizeAnother = viewModel::onNormalizeAnother,
+                    )
                 }
 
                 is NormalizerUiState.Error -> {
@@ -222,6 +226,7 @@ private fun VideoLoadedContent(
     state: NormalizerUiState.VideoLoaded,
     onChangeVideo: () -> Unit,
     onPresetSelected: (dev.vimal.utl.core.domain.model.LoudnessPreset) -> Unit,
+    onResolutionSelected: (dev.vimal.utl.core.domain.model.VideoResolutionPreset) -> Unit,
     onCustomLufsChanged: (Float?) -> Unit,
     onStart: () -> Unit,
 ) {
@@ -234,6 +239,8 @@ private fun VideoLoadedContent(
     ) {
         VideoMetadataCard(
             videoInfo = state.videoInfo,
+            selectedResolution = state.selectedResolution,
+            onResolutionSelected = onResolutionSelected,
             onChangeVideo = onChangeVideo,
         )
 
@@ -279,25 +286,41 @@ private fun ProcessingContent(state: NormalizerUiState.Processing) {
 }
 
 @Composable
-private fun DoneContent(state: NormalizerUiState.Done) {
+private fun DoneContent(
+    state: NormalizerUiState.Done,
+    onNormalizeAnother: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text("✓ Done!", style = MaterialTheme.typography.displayMedium, color = MaterialTheme.colorScheme.primary)
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         Text(
             "Gain applied: +${"%.1f".format(state.appliedGainDb)} dB",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            "${state.measuredLufs} LUFS → ${state.targetLufs} LUFS",
+            "${"%.1f".format(state.measuredLufs)} LUFS → ${"%.1f".format(state.targetLufs)} LUFS",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = androidx.compose.ui.res.stringResource(dev.vimal.utl.core.ui.R.string.msg_saved_to_gallery),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(32.dp))
+        PressableButton(
+            text = androidx.compose.ui.res.stringResource(dev.vimal.utl.core.ui.R.string.btn_normalize_another),
+            onClick = onNormalizeAnother,
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }

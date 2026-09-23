@@ -38,6 +38,7 @@ fun NormalizerProgressBar(
                 NormalizeProgress.Stage.DEMUXING -> "Separating tracks…"
                 NormalizeProgress.Stage.MEASURING_LUFS -> "Measuring loudness…"
                 NormalizeProgress.Stage.ENCODING_AUDIO -> "Encoding normalized audio…"
+                NormalizeProgress.Stage.COMPRESSING_VIDEO -> "Compressing video & normalizing audio…"
                 NormalizeProgress.Stage.MUXING -> "Muxing output…"
             }
             is NormalizeProgress.Muxing -> 0.95f to "Finalizing…"

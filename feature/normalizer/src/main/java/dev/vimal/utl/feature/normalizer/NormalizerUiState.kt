@@ -16,6 +16,7 @@ sealed class NormalizerUiState {
         val videoInfo: VideoInfo,
         val selectedPreset: LoudnessPreset = LoudnessPreset.YOUTUBE,
         val customLufs: Float? = null,
+        val selectedResolution: dev.vimal.utl.core.domain.model.VideoResolutionPreset = dev.vimal.utl.core.domain.model.VideoResolutionPreset.P720,
     ) : NormalizerUiState()
 
     /** Normalization in progress — show progress bar, hide Start. */

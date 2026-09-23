@@ -103,6 +103,13 @@ class EbuR128Calculator(
      * Call after feeding all samples.
      */
     fun integratedLoudness(): Float {
+        // Flush the last partial block if it holds at least one step of real audio (100 ms).
+        // Without this, audio that ends mid-block is silently discarded, producing an
+        // inaccurate LUFS reading for short clips or clips whose tail is quiet.
+        if (totalSamplesInBlock >= stepSizeSamples) {
+            computeAndStoreBlock()
+        }
+
         if (blockMeanSquares.isEmpty()) return -70f
 
         // Absolute gate: keep blocks above -70 LUFS
