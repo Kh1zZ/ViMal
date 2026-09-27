@@ -13,6 +13,7 @@ datastore = "1.1.1"
 room = "2.6.1"
 coil = "2.7.0"
 ffmpegKit = "8.1.7"
+smartException = "0.2.1"
 
 # Testing
 junit = "4.13.2"
@@ -62,6 +63,8 @@ kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 
 # FFmpeg-Kit Video (H.264, AAC, scale, volume for WhatsApp Story compression)
 ffmpeg-kit-video = { group = "dev.ffmpegkit-maintained", name = "ffmpeg-kit-video", version.ref = "ffmpegKit" }
+smart-exception-java = { group = "com.arthenica", name = "smart-exception-java", version.ref = "smartException" }
+smart-exception-common = { group = "com.arthenica", name = "smart-exception-common", version.ref = "smartException" }
 
 # Testing
 junit = { group = "junit", name = "junit", version.ref = "junit" }

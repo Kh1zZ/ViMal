@@ -35,6 +35,8 @@ dependencies {
 
     // FFmpeg-Kit Video (H.264, AAC, scale, volume for WhatsApp Story compression)
     implementation(libs.ffmpeg.kit.video)
+    implementation(libs.smart.exception.java)
+    implementation(libs.smart.exception.common)
 
     testImplementation(libs.bundles.testing.unit)
 }

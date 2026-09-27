@@ -10,6 +10,11 @@
 -keepclassmembers class com.arthenica.ffmpegkit.** { *; }
 -dontwarn com.arthenica.ffmpegkit.**
 
+# SmartException
+-keep class com.arthenica.smartexception.** { *; }
+-keepclassmembers class com.arthenica.smartexception.** { *; }
+-dontwarn com.arthenica.smartexception.**
+
 # Kotlin coroutines
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
 -keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
